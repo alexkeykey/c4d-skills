@@ -6,7 +6,8 @@ NAMES = [
     "Ocamera", "Olight", "Mmaterial", "Ttexture", "Ttargetexpression",
     "ID_BASEOBJECT_REL_POSITION", "ID_BASEOBJECT_REL_ROTATION",
     "ID_BASEOBJECT_REL_SCALE", "VECTOR_X", "VECTOR_Y", "VECTOR_Z",
-    "DTYPE_VECTOR", "DTYPE_REAL",
+    "DTYPE_VECTOR", "DTYPE_REAL", "DTYPE_LONG",
+    "ID_BASEOBJECT_VISIBILITY_EDITOR", "ID_BASEOBJECT_VISIBILITY_RENDER",
     "CINTERPOLATION_SPLINE", "CINTERPOLATION_LINEAR", "CINTERPOLATION_STEP",
     "DOCUMENT_MINTIME", "DOCUMENT_MAXTIME",
     "DOCUMENT_LOOPMINTIME", "DOCUMENT_LOOPMAXTIME",
@@ -19,8 +20,46 @@ NAMES = [
     "LIGHT_TYPE", "LIGHT_TYPE_AREA", "LIGHT_COLOR", "LIGHT_BRIGHTNESS",
     "LIGHT_SHADOWTYPE", "LIGHT_SHADOWTYPE_SOFT",
     "MATERIAL_COLOR_COLOR", "MATERIAL_USE_REFLECTION", "MATERIAL_USE_COLOR",
+    # лестница рендер-пресетов (renderladder.py, c4d-core §5b)
+    "RDATA_FRAMERATE", "RDATA_FRAMESEQUENCE", "RDATA_FRAMESEQUENCE_MANUAL",
+    "RDATA_FRAMEFROM", "RDATA_FRAMETO", "RDATA_PATH", "RDATA_FORMAT",
+    "RDATA_RENDERENGINE",
+    "RDATA_RENDERENGINE_STANDARD", "RDATA_RENDERENGINE_PHYSICAL",
+    "RDATA_ANTIALIASING", "RDATA_ANTIALIASING_GEOMETRY", "RDATA_ANTIALIASING_BEST",
+    "RDATA_OPTION_SHADOW", "RDATA_OPTION_REFLECTION", "RDATA_OPTION_TRANSPARENCY",
+    "VPglobalillumination",
 ]
 missing = [n for n in NAMES if not hasattr(c4d, n)]
+
+# без этих лестница работает, но деградирует (GI без preview-качества,
+# physical без preview-сэмплера и флагов MB/DOF) — renderladder.py печатает
+# их в "missing". Имена сверены вживую на C4D 2024.2.
+OPTIONAL = [
+    "GI_SETUP_DATA_IR_DENSITY_QUALITY", "GI_SETUP_QUALITY_PREVIEW",
+    "VP_XMB_RAYTRACING_QUALITY", "VP_XMB_RAYTRACING_QUALITY_PREVIEW",
+    "VP_XMB_MOTIONBLUR", "VP_XMB_DOF",
+]
+missing_optional = [n for n in OPTIONAL if not hasattr(c4d, n)]
+
+# живая проверка механики пресетов: создать RenderData, найти, удалить
+ok_rs = False
+rs = None
+try:
+    rs = c4d.documents.RenderData()
+    rs.SetName("ZZ_selftest_rs")
+    if hasattr(doc, "InsertRenderDataLast"):
+        doc.InsertRenderDataLast(rs)
+    else:
+        doc.InsertRenderData(rs)
+    _p = doc.GetFirstRenderData()
+    while _p:
+        if _p.GetName() == "ZZ_selftest_rs":
+            ok_rs = True
+            break
+        _p = _p.GetNext()
+finally:
+    if rs is not None:
+        rs.Remove()
 
 # живая проверка ключевого механизма: трек + кривая + ключ на временном объекте
 probe = "ZZ_selftest_probe"
@@ -28,6 +67,7 @@ o = c4d.BaseObject(c4d.Onull)
 o.SetName(probe)
 doc.InsertObject(o)
 ok_key = False
+ok_vis = False
 try:
     did = c4d.DescID(
         c4d.DescLevel(c4d.ID_BASEOBJECT_REL_POSITION, c4d.DTYPE_VECTOR, 0),
@@ -40,6 +80,17 @@ try:
     r["key"].SetValue(cu, 100.0)
     r["key"].SetInterpolation(cu, c4d.CINTERPOLATION_SPLINE)
     ok_key = cu.GetKeyCount() == 1
+
+    # видимость: LONG-трек (механизм смены состояний, key_vis из прелюдии)
+    did_v = c4d.DescID(c4d.DescLevel(
+        c4d.ID_BASEOBJECT_VISIBILITY_EDITOR, c4d.DTYPE_LONG, 0))
+    trv = c4d.CTrack(o, did_v)
+    o.InsertTrackSorted(trv)
+    cuv = trv.GetCurve()
+    rv = cuv.AddKey(c4d.BaseTime(5, doc.GetFps()))
+    rv["key"].SetValue(cuv, 1)
+    rv["key"].SetInterpolation(cuv, c4d.CINTERPOLATION_STEP)
+    ok_vis = cuv.GetKeyCount() == 1
 finally:
     o.Remove()
 
@@ -47,6 +98,11 @@ print(json.dumps({
     "c4d_version": c4d.GetC4DVersion(),
     "fps": doc.GetFps(),
     "missing_constants": missing,
+    "missing_optional": missing_optional,
     "keyframe_mechanism_ok": ok_key,
+    "visibility_key_mechanism_ok": ok_vis,
+    "render_preset_mechanism_ok": ok_rs,
+    "picture_viewer_show": hasattr(c4d.bitmaps, "ShowBitmap"),
+    "status_bar": hasattr(c4d, "StatusSetText"),
 }, indent=2))
 c4d.EventAdd()

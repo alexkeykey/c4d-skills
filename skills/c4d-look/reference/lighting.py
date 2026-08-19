@@ -82,30 +82,18 @@ def assign(m, target, recursive=True):
     return n
 
 
-def render_settings(w=1280, h=720, f0=0, f1=100, path=None, png=True):
-    """Настройка финального прогона. Сам прогон запускает пользователь:
-    Render → Render to Picture Viewer (мост отвалится по таймауту)."""
-    fps = doc.GetFps()
-    rd = doc.GetActiveRenderData()
-    rd[c4d.RDATA_XRES] = float(w)
-    rd[c4d.RDATA_YRES] = float(h)
-    rd[c4d.RDATA_FRAMERATE] = float(fps)
-    rd[c4d.RDATA_FRAMESEQUENCE] = c4d.RDATA_FRAMESEQUENCE_MANUAL
-    rd[c4d.RDATA_FRAMEFROM] = c4d.BaseTime(f0, fps)
-    rd[c4d.RDATA_FRAMETO] = c4d.BaseTime(f1, fps)
-    if path:
-        rd[c4d.RDATA_SAVEIMAGE] = True
-        rd[c4d.RDATA_PATH] = path
-        if png:
-            rd[c4d.RDATA_FORMAT] = c4d.FILTER_PNG
-    print(json.dumps({"res": [w, h], "frames": [f0, f1], "fps": fps,
-                      "path": path, "engine": rd[c4d.RDATA_RENDERENGINE]}))
-    return rd
+# Рендер-сеттинги здесь больше не настраиваются: лестница пресетов
+# RS_draft/RS_tex/RS_light/RS_final и замер времени кадра —
+# в ~/.claude/skills/c4d-core/reference/renderladder.py
+# (render_ladder(), time_frame(); правила — c4d-core §5b).
 
 
-def contact_sheet(folder, frames, cam=None, w=800, h=450, tag="look"):
-    """Отрендерить набор кадров по одному. ВНИМАНИЕ: 30 с на скрипт —
+def contact_sheet(folder, frames, cam=None, w=800, h=450, tag="look", rs=None):
+    """Отрендерить набор кадров по одному. rs: имя пресета лестницы —
+    включается перед рендерами (use_rs). ВНИМАНИЕ: 30 с на скрипт —
     больше 3–4 кадров за один вызов не запрашивай, режь на несколько скриптов."""
+    if rs:
+        use_rs(rs)
     if cam:
         activate(cam)
     out = []

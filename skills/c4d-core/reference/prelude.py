@@ -1,4 +1,4 @@
-# --- C4D PRELUDE v1 --------------------------------------------------------
+# --- C4D PRELUDE v2 --------------------------------------------------------
 # Приклеивай целиком в начало КАЖДОГО execute_python_script.
 # Песочница уже даёт: c4d, math, random, time, json, doc.
 # Углы везде в ГРАДУСАХ — конвертация в радианы внутри.
@@ -76,6 +76,33 @@ def key(o, ch, frame, val, interp="spline"):
     k.SetInterpolation(cu, INT[interp])
     return k
 
+def key_vis(o, frame, on):
+    """Ключ видимости (editor+render разом), интерполяция step. Механизм смены
+    состояний ассетов (__<состояние>, c4d-core §5): на кадре смены —
+    key_vis(старый, f, False) + key_vis(новый, f, True)."""
+    if isinstance(o, str):
+        o = find(o)
+    if o is None:
+        raise ValueError("key_vis(): object not found")
+    v = 0 if on else 1          # 0 = вкл, 1 = выкл
+    for pid in (c4d.ID_BASEOBJECT_VISIBILITY_EDITOR,
+                c4d.ID_BASEOBJECT_VISIBILITY_RENDER):
+        did = c4d.DescID(c4d.DescLevel(pid, c4d.DTYPE_LONG, 0))
+        tr = o.FindCTrack(did)
+        if tr is None:
+            tr = c4d.CTrack(o, did)
+            o.InsertTrackSorted(tr)
+        cu = tr.GetCurve()
+        t = c4d.BaseTime(frame, FPS)
+        ex = cu.FindKey(t)
+        if ex:
+            k = ex["key"]
+        else:
+            k = cu.AddKey(t)["key"]
+        k.SetValue(cu, v)
+        k.SetInterpolation(cu, c4d.CINTERPOLATION_STEP)
+    return o
+
 def clear_keys(o, ch=None):
     """Снести треки объекта (все или один канал) — для перезаливки анимации.
     Трек удаляется через tr.Remove(): метода KillCTrack у объекта НЕТ."""
@@ -123,12 +150,27 @@ def activate(cam):
     doc.GetActiveBaseDraw().SetSceneCamera(cam)
     return cam
 
-def render_to(path, frame=None, w=960, h=540):
-    """Рендер кадра в PNG. Единственный способ увидеть картинку: потом Read этого файла."""
+def use_rs(name):
+    """Активировать рендер-пресет лестницы по имени (RS_draft/RS_tex/RS_light/RS_final).
+    Роль включает свой пресет первой строкой рендер-фазы — c4d-core §5b."""
+    rd = doc.GetFirstRenderData()
+    while rd:
+        if rd.GetName() == name:
+            doc.SetActiveRenderData(rd)
+            return rd
+        rd = rd.GetNext()
+    print("NO RENDER PRESET %s — вклей renderladder.py и создай лестницу" % name)
+    return None
+
+def render_to(path, frame=None, w=960, h=540, show=True):
+    """Рендер кадра в PNG (через активный рендер-пресет) + показ в Picture Viewer,
+    чтобы пользователь видел, что идёт рендер, а не «всё зависло». Потом Read файла."""
     if frame is not None:
         doc.SetTime(c4d.BaseTime(frame, FPS))
         bf = getattr(c4d, "BUILDFLAGS_NONE", 0)
         doc.ExecutePasses(None, True, True, True, bf)
+    if hasattr(c4d, "StatusSetText"):
+        c4d.StatusSetText("render f%s → %s" % (frame, path.split("/")[-1]))
     rd = doc.GetActiveRenderData().GetClone()
     rd[c4d.RDATA_XRES] = float(w)
     rd[c4d.RDATA_YRES] = float(h)
@@ -137,10 +179,14 @@ def render_to(path, frame=None, w=960, h=540):
     bmp.Init(int(w), int(h), 24)
     res = c4d.documents.RenderDocument(doc, rd.GetData(), bmp,
                                        c4d.RENDERFLAGS_EXTERNAL)
+    if hasattr(c4d, "StatusClear"):
+        c4d.StatusClear()
     if res != c4d.RENDERRESULT_OK:
         print("RENDER FAILED code=%s" % res)
         return False
     bmp.Save(path, c4d.FILTER_PNG)
+    if show and hasattr(c4d.bitmaps, "ShowBitmap"):
+        c4d.bitmaps.ShowBitmap(bmp)
     print("RENDERED %s (frame=%s)" % (path, frame))
     return True
 
