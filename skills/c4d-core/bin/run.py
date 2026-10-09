@@ -10,7 +10,7 @@
   * склеивает `import c4d, math, random, time, json` + prelude.py [+ renderladder.py]
     [+ --lib файлы, например c4d-core/reference/lib_solids.py] + JOB = {...} + скрипты;
   * определяет проект по пути скрипта (~/c4d-projects/<slug>/scripts/…) и подставляет
-    PROJ = "/abs/…/<slug>/" и SLUG; активирует открытый документ <slug>.c4d (или --doc),
+    PROJ = "/abs/…/<slug>/", SLUG и SCENE = scene.json словарём (open() в C4D — ASCII); активирует открытый документ <slug>.c4d (или --doc),
     чтобы правка не ушла в чужую открытую сцену;
   * печатает stdout/stderr скрипта и result; код выхода ≠ 0 при ошибке;
   * при таймауте моста (60 с главного потока C4D) объясняет, что делать: C4D ещё
@@ -127,6 +127,11 @@ def main(argv):
             % (docname, docname))
     if proj:
         parts.append("PROJ = %r\nSLUG = %r" % (proj, slug))
+        sj = os.path.join(proj, "scene.json")
+        if os.path.exists(sj):
+            # open() внутри C4D читает в ASCII — кириллица в scene.json роняет json.load;
+            # раннер читает сам (utf-8) и передаёт словарём
+            parts.append("SCENE = " + repr(json.load(open(sj, encoding="utf-8"))))
     parts.append(open(os.path.join(REF, "prelude.py")).read())
     if ladder:
         parts.append(open(os.path.join(REF, "rs_presets.py")).read())

@@ -28,6 +28,8 @@
   циклом (клиент делает), большие — `--out file.json`.
 - **В JOB-данных питоновские литералы**: писать `repr()`, не json (`true`/`false` не
   питон). Раннер `--job` делает repr сам.
+- **`open()` внутри C4D читает в ASCII** — кириллица в файле → UnicodeDecodeError. scene.json
+  раннер передаёт словарём `SCENE`; свои файлы — `open(p, encoding="utf-8")`.
 - **Viewport renderer для плейбласта не годится**: рисует сетку, HUD, гизмо. Только
   RenderDocument через пресет.
 
