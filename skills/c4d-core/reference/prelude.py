@@ -1,6 +1,7 @@
-# --- C4D PRELUDE v2 --------------------------------------------------------
-# Приклеивай целиком в начало КАЖДОГО execute_python_script.
-# Песочница уже даёт: c4d, math, random, time, json, doc.
+# --- C4D PRELUDE v3 --------------------------------------------------------
+# Вклеивается автоматически раннером c4d-core/bin/run.py (вручную не копировать).
+# Мост 18710 даёт: c4d, documents, doc, op; раннер добавляет math/random/time/json,
+# PROJ/SLUG (папка проекта) и активирует документ <slug>.c4d.
 # Углы везде в ГРАДУСАХ — конвертация в радианы внутри.
 FPS = doc.GetFps()
 
@@ -76,10 +77,12 @@ def key(o, ch, frame, val, interp="spline"):
     k.SetInterpolation(cu, INT[interp])
     return k
 
-def key_vis(o, frame, on):
+def key_vis(o, frame, on, mb=False):
     """Ключ видимости (editor+render разом), интерполяция step. Механизм смены
     состояний ассетов (__<состояние>, c4d-core §5): на кадре смены —
-    key_vis(старый, f, False) + key_vis(новый, f, True)."""
+    key_vis(старый, f, False) + key_vis(новый, f, True).
+    mb=True — сцена с motion blur: ступенька ставится на f-0.5, иначе выдержка
+    захватит соседний полукадр и даст «призрак» обоих состояний (traps.md)."""
     if isinstance(o, str):
         o = find(o)
     if o is None:
@@ -93,7 +96,8 @@ def key_vis(o, frame, on):
             tr = c4d.CTrack(o, did)
             o.InsertTrackSorted(tr)
         cu = tr.GetCurve()
-        t = c4d.BaseTime(frame, FPS)
+        f = frame - 0.5 if mb else frame
+        t = c4d.BaseTime(int(round(f * 1000)), int(FPS) * 1000)
         ex = cu.FindKey(t)
         if ex:
             k = ex["key"]
@@ -121,6 +125,20 @@ def clear_keys(o, ch=None):
                 tr.Remove()
                 n += 1
     return n
+
+def bake(o, ch, f0, f1, fn, step=1):
+    """Покадровое запекание процедурного движения: значение канала ch на кадре f =
+    fn(f), ключи LINEAR. Так делаются баллистика, пружины, easing из motion.md —
+    сплайн C4D между редкими ключами их не воспроизведёт. Старый трек канала сносится."""
+    if isinstance(o, str):
+        o = find(o)
+    clear_keys(o, ch)
+    f = f0
+    while f <= f1:
+        key(o, ch, f, fn(f), "linear")
+        f += step
+    return o
+
 
 def timing(fps=24, length=120):
     """Кадровая база документа: fps и диапазон 0..length."""
@@ -154,18 +172,21 @@ def activate(cam):
 def use_rs(name):
     """Активировать рендер-пресет лестницы по имени (RS_draft/RS_tex/RS_light/RS_final).
     Роль включает свой пресет первой строкой рендер-фазы — c4d-core §5b."""
-    rd = doc.GetFirstRenderData()
-    while rd:
-        if rd.GetName() == name:
-            doc.SetActiveRenderData(rd)
-            return rd
-        rd = rd.GetNext()
-    print("NO RENDER PRESET %s — вклей renderladder.py и создай лестницу" % name)
+    alias = {"RS_light": "RS_keys"}          # v2 → v3: RS_light заменён RS_keys
+    for nm in (name, alias.get(name)):
+        rd = doc.GetFirstRenderData()
+        while nm and rd:
+            if rd.GetName() == nm:
+                doc.SetActiveRenderData(rd)
+                return rd
+            rd = rd.GetNext()
+    print("NO RENDER PRESET %s — run.py --ladder и render_ladder(...)" % name)
     return None
 
-def render_to(path, frame=None, w=960, h=540, show=True):
-    """Рендер кадра в PNG (через активный рендер-пресет) + показ в Picture Viewer,
-    чтобы пользователь видел, что идёт рендер, а не «всё зависло». Потом Read файла."""
+def render_to(path, frame=None, w=960, h=540, show=False):
+    """Рендер кадра в PNG через активный рендер-пресет. Потом Read файла.
+    show=False по умолчанию: ShowBitmap/EventAdd во время пачки роняли C4D
+    (crash в c4d_viewport_render). Прогресс пользователю — статус-бар и отчёт в чат."""
     if frame is not None:
         doc.SetTime(c4d.BaseTime(frame, FPS))
         bf = getattr(c4d, "BUILDFLAGS_NONE", 0)

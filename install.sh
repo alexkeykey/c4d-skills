@@ -8,6 +8,14 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET="$HOME/.claude/skills"
 mkdir -p "$TARGET"
 
+# убрать ссылки на скиллы, которых в репо больше нет (c4d-layout/animator/look/asset → /c4d)
+for l in "$TARGET"/*; do
+  if [ -L "$l" ]; then
+    t="$(readlink "$l")"
+    case "$t" in "$REPO_DIR"/*) [ -e "$t" ] || { rm "$l"; echo "✗ убрана устаревшая ссылка $(basename "$l")"; };; esac
+  fi
+done
+
 for src in "$REPO_DIR"/skills/*/; do
   name="$(basename "$src")"
   dst="$TARGET/$name"
@@ -23,5 +31,5 @@ for src in "$REPO_DIR"/skills/*/; do
 done
 
 echo
-echo "Готово. Скиллы доступны как /c4d-plan, /c4d-layout, /c4d-animator, /c4d-look, /c4d-asset."
+echo "Готово. Скиллы: /c4d-plan (план), /c4d (исполнитель с режимами), c4d-core (база)."
 echo "Обновление в будущем: git pull в $REPO_DIR (симлинки подхватят изменения сами)."

@@ -1,0 +1,1 @@
+../../c4d-core/bin/c4d.py
