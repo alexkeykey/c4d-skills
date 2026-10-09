@@ -100,6 +100,7 @@ def key_vis(o, frame, on):
         else:
             k = cu.AddKey(t)["key"]
         k.SetValue(cu, v)
+        k.SetGeData(cu, v)      # LONG-параметр: C4D берёт значение из GeData, SetValue игнорирует
         k.SetInterpolation(cu, c4d.CINTERPOLATION_STEP)
     return o
 
@@ -175,6 +176,9 @@ def render_to(path, frame=None, w=960, h=540, show=True):
     rd[c4d.RDATA_XRES] = float(w)
     rd[c4d.RDATA_YRES] = float(h)
     rd[c4d.RDATA_SAVEIMAGE] = False
+    # лестница ставит пресетам диапазон 0..length — без этого RenderDocument
+    # рендерит кадр из диапазона, а не текущее время документа
+    rd[c4d.RDATA_FRAMESEQUENCE] = c4d.RDATA_FRAMESEQUENCE_CURRENTFRAME
     bmp = c4d.bitmaps.BaseBitmap()
     bmp.Init(int(w), int(h), 24)
     res = c4d.documents.RenderDocument(doc, rd.GetData(), bmp,

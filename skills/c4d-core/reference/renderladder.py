@@ -106,7 +106,9 @@ def render_ladder(engine="standard", res=(1280, 720), f0=0, f1=100,
     d[c4d.RDATA_RENDERENGINE] = ENG["standard"]
     _opt(d, "RDATA_ANTIALIASING", AA_GEO)
     _opt(d, "RDATA_OPTION_SHADOW", False)
-    _opt(d, "RDATA_OPTION_REFLECTION", False)
+    # отражения ВКЛ: у стандартных материалов с GGX-слоями (после прохода материалов) при выкл
+    # отражениях Standard рендерит объекты чёрными — черновик перестаёт показывать что-либо
+    _opt(d, "RDATA_OPTION_REFLECTION", True)
     _opt(d, "RDATA_OPTION_TRANSPARENCY", False)
     _vp_drop(d, GI_VP)
 
