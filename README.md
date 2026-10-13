@@ -1,118 +1,128 @@
 # c4d-skills
 
-Скиллы для [Claude Code](https://claude.com/claude-code): Claude сам работает в Cinema 4D —
-ставит сцену, моделит болванками и ассетами, анимирует, ставит камеру, свет, материалы
-и рендерит. Вы описываете, что хотите увидеть, а не какие кнопки нажать.
+**English** | [Русский](README.ru.md) | [中文](README.zh-CN.md)
 
-## Как это устроено
+Skills for [Claude Code](https://claude.com/claude-code) that let Claude work in Cinema 4D on its own:
+it sets up the scene, models with placeholders and real assets, animates, places the camera,
+lights, shades and renders. You describe what you want to see, not which buttons to press.
 
-Скилл работает как маленькая анимационная студия: у каждого этапа своя роль, и следующий
-этап начинается, только когда вы приняли предыдущий.
+> The skill instructions are written in Russian. Claude reads them fine and answers in
+> whatever language you write to it.
 
-| Этап | Что происходит |
+## How it works
+
+The skill works like a small animation studio: every stage has its own role, and the next
+stage starts only after you have approved the previous one.
+
+| Stage | What happens |
 |---|---|
-| **Режиссёр** (`/c4d-plan`) | Расспрашивает о сцене: длительность, настроение, камера, что важно. Пишет план (`shotplan.md`, `scene.json` с ключевыми кадрами) и готовые промты для следующих этапов. Cinema 4D не нужна. |
-| **Блокинг** (`/c4d сцена`) | Сцена из простых фигур: проверяем только позы и тайминг, без света и материалов. |
-| **Аниматор** (`/c4d анимация`) | Превращает позы в движение: замах, удар, отдача, сальто. |
-| **Оператор** | Ракурс и движение камеры, чтобы действие читалось. |
-| **Ассеты** (`/c4d ассеты`) | Болванки меняются на настоящие модели — анимация не ломается. |
-| **Свет и материалы** (`/c4d свет`, `/c4d материалы`) | Несколько вариантов света за пару минут: студия, драма, закат, неон. |
-| **Рендер** (`/c4d рендер`) | Лестница пресетов: быстрые превизы → лист ключевых кадров → финал в фоне. |
+| **Director** (`/c4d-plan`) | Asks about the scene: duration, mood, camera, what matters. Writes the plan (`shotplan.md`, `scene.json` with key frames) and ready-made prompts for the next stages. Cinema 4D is not needed. |
+| **Blocking** (`/c4d сцена`) | The scene in simple shapes: only poses and timing are checked, no lights or materials. |
+| **Animator** (`/c4d анимация`) | Turns poses into motion: anticipation, impact, recoil, flips. |
+| **Camera operator** | Camera angle and movement, so the action reads clearly. |
+| **Assets** (`/c4d ассеты`) | Placeholders are swapped for real models without breaking the animation. |
+| **Lights and materials** (`/c4d свет`, `/c4d материалы`) | Several lighting options in a couple of minutes: studio, drama, sunset, neon. |
+| **Render** (`/c4d рендер`) | A ladder of presets: quick previews → key-frame sheet → final render in the background. |
 
-Между этапами Claude показывает черновое видео (плейбласт) или лист кадров.
+Between stages Claude shows a draft video (playblast) or a sheet of key frames.
 
-## Состав
+Mode names after `/c4d` are Russian words (`сцена` = scene, `анимация` = animation,
+`ассеты` = assets, `свет` = lighting, `материалы` = materials, `рендер` = render).
+You can also just describe the task in your own language: `/c4d set up the lighting`.
 
-| Скилл | Что делает |
+## What's inside
+
+| Skill | What it does |
 |---|---|
-| `/c4d-plan` | Планировщик: допрос по идее, `shotplan.md`, `scene.json` (ключевые кадры, пресет рендера), промты проходов. |
-| `/c4d` | Исполнитель с режимами: `сцена`, `ассеты`, `анимация`, `материалы`, `свет`, `рендер`, `итерации`, свободная работа. Главы — `skills/c4d/modes/*.md`. |
-| `c4d-core` | База: мост и раннер, проверка связи и перезапуск C4D, прелюдия, лестница пресетов, гейты, инструменты и справочники. |
+| `/c4d-plan` | Planner: interviews you about the idea, writes `shotplan.md`, `scene.json` (key frames, render preset) and prompts for each pass. |
+| `/c4d` | Executor with modes: scene, assets, animation, materials, lighting, render, iterations, free-form work. Chapters live in `skills/c4d/modes/*.md`. |
+| `c4d-core` | The base: bridge and script runner, connection check and C4D restart, prelude, render preset ladder, quality gates, tools and references. |
 
-Инструменты (`skills/c4d-core/bin`):
+Tools (`skills/c4d-core/bin`):
 
 | | |
 |---|---|
-| `preflight.sh` / `restart.sh` | проверка связи / перезапуск C4D с включённым `exec_python` |
-| `run.py` | выполнить скрипт проекта в C4D (прелюдия, папка проекта, активный документ) |
-| `playblast.py` | черновое видео пачками под лимит моста, со звуком |
-| `keysheet.py` | лист ключевых кадров движком финала + % пересвета — гейт перед финалом |
-| `final.py` | `estimate` → `launch` (Picture Viewer, в фоне) → `watch` (сборка mp4/ProRes) |
-| `clipcheck.py`, `c4d.py` | пересвет PNG; низкоуровневый клиент моста |
+| `preflight.sh` / `restart.sh` | connection check / restart C4D with `exec_python` enabled |
+| `run.py` | run a project script inside C4D (prelude, project folder, active document) |
+| `playblast.py` | draft video in batches that fit the bridge time limit, with sound |
+| `keysheet.py` | key-frame sheet rendered with the final engine + % of clipped pixels — a gate before the final render |
+| `final.py` | `estimate` → `launch` (Picture Viewer, in the background) → `watch` (builds mp4/ProRes) |
+| `clipcheck.py`, `c4d.py` | clipped pixels in a PNG; low-level bridge client |
 
-Справочники (`skills/c4d-core/reference`): `traps.md` (ловушки C4D и моста), `motion.md`
-(принципы анимации и камеры), `render-presets.md` + `rs_presets.py` (пресеты рендера),
-`model-sources.md` (где брать модели), `bridge.md` (команды моста).
+References (`skills/c4d-core/reference`): `traps.md` (C4D and bridge pitfalls), `motion.md`
+(animation and camera principles), `render-presets.md` + `rs_presets.py` (render presets),
+`model-sources.md` (where to get models), `bridge.md` (bridge commands).
 
-## Требования
+## Requirements
 
-- **Claude Code** — CLI или приложение.
-- **Cinema 4D 2024 или новее.** Проверено на 2024.
-- **Плагин-мост `cinema4d_mcp_bridge`** из проекта
+- **Claude Code** — CLI or app.
+- **Cinema 4D 2024 or newer.** Tested on 2024.
+- **The `cinema4d_mcp_bridge` plugin** from
   [kumoproductions/mcp-cinema4d](https://github.com/kumoproductions/mcp-cinema4d) (MIT).
-  Скиллу нужен только плагин внутри C4D, MCP-сервер из того проекта ставить не обязательно.
-  На C4D 2024 проверен мост [v0.4.2](https://github.com/kumoproductions/mcp-cinema4d/releases/tag/v0.4.2);
-  свежие версии рассчитаны на C4D 2026.
-- `python3` с Pillow, `ffmpeg` — для плейбластов и листов кадров.
-- macOS. Скрипты запуска C4D (`restart.sh`, `preflight.sh`) написаны под macOS.
+  The skills only need the plugin inside C4D; the MCP server from that project is optional.
+  Bridge [v0.4.2](https://github.com/kumoproductions/mcp-cinema4d/releases/tag/v0.4.2) is tested
+  on C4D 2024; newer versions target C4D 2026.
+- `python3` with Pillow and `ffmpeg` — for playblasts and key-frame sheets.
+- macOS. The C4D launch scripts (`restart.sh`, `preflight.sh`) are written for macOS.
 
-## Установка
+## Installation
 
-**1. Плагин-мост.** Скачайте архив `cinema4d_mcp_bridge` со
-[страницы релизов](https://github.com/kumoproductions/mcp-cinema4d/releases) и распакуйте папку
-`cinema4d_mcp_bridge/` в папку плагинов Cinema 4D
-(macOS: `~/Library/Preferences/Maxon/Maxon Cinema 4D <версия>/plugins/`).
+**1. The bridge plugin.** Download the `cinema4d_mcp_bridge` archive from the
+[releases page](https://github.com/kumoproductions/mcp-cinema4d/releases) and extract the
+`cinema4d_mcp_bridge/` folder into the Cinema 4D plugins folder
+(macOS: `~/Library/Preferences/Maxon/Maxon Cinema 4D <version>/plugins/`).
 
-**2. Скиллы.**
+**2. The skills.**
 
 ```bash
 git clone https://github.com/alexkeykey/c4d-skills ~/c4d-skills
 ~/c4d-skills/install.sh
 ```
 
-`install.sh` делает симлинки из `~/.claude/skills/` на папки репозитория, поэтому
-`git pull` обновляет скиллы сразу. Повторный запуск безопасен.
+`install.sh` creates symlinks from `~/.claude/skills/` to the repository folders, so
+`git pull` updates the skills right away. Running it again is safe.
 
-**3. Запуск C4D с мостом.**
+**3. Start C4D with the bridge.**
 
 ```bash
 bash ~/.claude/skills/c4d-core/bin/restart.sh
 ```
 
-Скрипт запускает Cinema 4D с `C4D_MCP_ENABLE_EXEC_PYTHON=1` и ждёт, пока поднимется мост.
-По умолчанию ищет `/Applications/Maxon Cinema 4D 2024/Cinema 4D.app`; для другой версии задайте путь:
+The script launches Cinema 4D with `C4D_MCP_ENABLE_EXEC_PYTHON=1` and waits for the bridge.
+By default it looks for `/Applications/Maxon Cinema 4D 2024/Cinema 4D.app`; for another version set the path:
 `C4D_APP="/Applications/Maxon Cinema 4D 2026/Cinema 4D.app" bash …/restart.sh`.
-Проверка связи: `bash ~/.claude/skills/c4d-core/bin/preflight.sh`.
+Connection check: `bash ~/.claude/skills/c4d-core/bin/preflight.sh`.
 
-## Первый запуск
+## First run
 
-В Claude Code:
+In Claude Code:
 
 ```
-/c4d-plan заставка для подкаста: механический свитч клавиатуры в воздухе,
-нажимается несколько раз с характерным импактом, на крышке слово «нажми»
+/c4d-plan podcast intro: a mechanical keyboard switch floating in the air,
+pressed a few times with a punchy impact, the word "press" on the keycap
 ```
 
-Планировщик задаст вопросы и выдаст промты для следующих этапов. Дальше по очереди:
+The planner asks its questions and hands you prompts for the next stages. Then, in order:
 `/c4d сцена` → `/c4d анимация` → `/c4d ассеты` → `/c4d свет` → `/c4d рендер`.
 
-Можно и без плана: `/c4d что сейчас в сцене?` или `/c4d поставь камеру ниже и отрендери превью`.
+You can skip the plan too: `/c4d what is in the scene right now?` or
+`/c4d move the camera lower and render a preview`.
 
-## Безопасность
+## Security
 
-Скилл выполняет Python-код внутри Cinema 4D (`exec_python`). У этого кода те же права, что
-у самой C4D: файлы, сеть, запуск программ. Поэтому:
+The skills run Python code inside Cinema 4D (`exec_python`). That code has the same rights as
+C4D itself: files, network, launching programs. So:
 
-- работайте на копии сцены или с включённым контролем версий;
-- не отключайте подтверждение действий в Claude Code, если не уверены;
-- мост слушает только `127.0.0.1`. Если на компьютере работают другие люди, задайте
-  токен `C4D_MCP_TOKEN` — подробности в
-  [README моста](https://github.com/kumoproductions/mcp-cinema4d#security).
+- work on a copy of the scene or with version control;
+- keep action approvals in Claude Code turned on unless you are sure;
+- the bridge listens on `127.0.0.1` only. If other people use the computer, set a
+  `C4D_MCP_TOKEN` — see the
+  [bridge README](https://github.com/kumoproductions/mcp-cinema4d#security).
 
-С Cinema 4D 2026.4 у Maxon есть встроенный MCP-сервер. Скиллы этого репозитория работают
-через мост `cinema4d_mcp_bridge`; не включайте оба сервера в одном клиенте одновременно.
+Cinema 4D 2026.4 and later ship a built-in MCP server from Maxon. The skills in this repository
+work through the `cinema4d_mcp_bridge` bridge; do not enable both servers in the same client.
 
-## Лицензия
+## License
 
-[MIT](LICENSE) © 2026 Alexey Kurbatov. Плагин-мост — отдельный проект со своей
-лицензией MIT: [kumoproductions/mcp-cinema4d](https://github.com/kumoproductions/mcp-cinema4d).
+[MIT](LICENSE) © 2026 Alexey Kurbatov. The bridge plugin is a separate project with its own
+MIT license: [kumoproductions/mcp-cinema4d](https://github.com/kumoproductions/mcp-cinema4d).
