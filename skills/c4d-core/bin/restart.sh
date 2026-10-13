@@ -5,7 +5,7 @@
 # --force — только когда C4D висит намертво (ping не отвечает, CPU ~0) или пользователь разрешил.
 # Запускать в фоне не нужно: ждёт мост до 4 минут и печатает итог.
 BIN="$(cd "$(dirname "$0")" && pwd)"
-APP="/Applications/Maxon Cinema 4D 2024/Cinema 4D.app"
+APP="${C4D_APP:-/Applications/Maxon Cinema 4D 2024/Cinema 4D.app}"   # другая версия: C4D_APP="/Applications/Maxon Cinema 4D 2026/Cinema 4D.app"
 SCENE=""; FORCE=0
 for a in "$@"; do
   case "$a" in --force) FORCE=1;; *) SCENE="$a";; esac
